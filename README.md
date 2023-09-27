@@ -128,7 +128,7 @@ variables:
 #   RLSECURE_ENCODED_LICENSE: must be declared as a global variable type 'variable'
  
 include:
-  - remote: 'https://raw.githubusercontent.com/maarten-boot/gl-include-remote-reversinglabs-rl-scanner/main/gl-include-remote-reversinglabs-rl-scanner.yml'
+  - remote: 'https://raw.githubusercontent.com/reversinglabs/rl-scanner-gitlab-include/main/rl-scanner-gitlab-include.yml'
  
 job-build:
   stage: build
