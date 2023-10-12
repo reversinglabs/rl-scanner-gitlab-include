@@ -3,7 +3,8 @@
 ReversingLabs provides the officially supported GitLab CI configuration for faster and easier deployment of the `rl-secure` solution in CI/CD workflows.
 
 The `rl-scanner-gitlab-include` repository provides the remote include configuration file called `gl-include-remote-reversinglabs-rl-scanner.yml`.
-Users can add this to their existing pipelines using the following syntax:
+
+To add the configuration to existing pipelines, use the following syntax:
 
 
         include:
@@ -13,6 +14,8 @@ Users can add this to their existing pipelines using the following syntax:
 The configuration uses the official [reversinglabs/rl-scanner](https://hub.docker.com/r/reversinglabs/rl-scanner) Docker image to scan a single build artifact with `rl-secure`, generate the analysis report, and display the analysis status as one of the checks in the GitLab interface.
 
 This configuration is most suitable for experienced users who want to include it into more complex workflows.
+
+By default, the configuration is set up to work with GitLab-hosted runners. It is also possible to use it with locally installed runners to accommodate the [package store use-case](#local-gitlab-runner).
 
 
 ## What is rl-secure?
@@ -87,14 +90,14 @@ The Base64-encoded license string and the site key must be provided to the pipel
 | :---------              | :-----   | :------ |
 | `MY_ARTIFACT_TO_SCAN`   | **Yes**  | The file name of the artifact to be scanned. The artifact must exist before the test stage is run. |
 | `PACKAGE_PATH`          | **Yes**  | The location relative to the checkout of the artifact to be scanned. This artifact is expected to be found at: `${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}`. |
-| `REPORT_PATH`           | **Yes**  | The location relative to the checkout where the reports are created. Provide an empty directory, `REPORT_PATH` is deleted and re-created before the scan starts. |
+| `REPORT_PATH`           | **Yes**  | The location relative to the checkout where analysis reports will be stored after the scan is finished. The directory specified as `REPORT_PATH` must be empty. It is deleted and re-created before the scan starts.  |
 | `RLSECURE_PROXY_SERVER`   | No | Server name for proxy configuration (IP address or DNS name). |
-| `RLSECURE_PROXY_PORT`     | No |  Network port on the proxy server for proxy configuration. Required if `RLSECURE_PROXY_SERVER` is used. |
+| `RLSECURE_PROXY_PORT`     | No | Network port on the proxy server for proxy configuration. Required if `RLSECURE_PROXY_SERVER` is used. |
 | `RLSECURE_PROXY_USER`     | No | User name for proxy authentication. |
 | `RLSECURE_PROXY_PASSWORD` | No | Password for proxy authentication. Required if `RLSECURE_PROXY_USER` is used. |
-| `RL_STORE`                | No | Use this self hosted package store during the scan. |
-| `RL_PACKAGE_URL`          | No | Use this `PURL` during scan. |
-| `RL_DIFF_WITH`            | No | Request that the report also includes a diff against this previously scanned version. |
+| `RL_STORE`                | No | If using a package store, use this parameter to provide the path to a directory where the self-hosted package store has been initialized. |
+| `RL_PACKAGE_URL`          | No | If using a package store, use this parameter to specify the package URL (PURL) for the scanned artifact. The package URL should be in the format `project/package@version`; for example `testing/demo-rl-scanner@v1.0.3`. |
+| `RL_DIFF_WITH`            | No | If using a package store, use this parameter to specify a previously scanned package version to compare (diff) against. |
 | `RL_VERBOSE`              | No | Set to anything but '' to provide more feedback in the output while running the scan. Disabled by default. |
 
 
@@ -112,18 +115,130 @@ The job creates the reports in the directory: `$REPORT_PATH`.
 The reports are always created even if the scan job fails.
 
 Users can control the `REPORT_PATH` as an input parameter.
-The directory specified must be empty.
+The specified directory must be empty.
 
 
 ## Examples
 
-The following example is a basic pipeline that includes the remote as the test stage.
+The following example is a basic pipeline that includes the remote configuration as the test stage.
 
 The workflow scans a build artifact with `rl-secure`, saves the report, and displays the analysis results.
-The remote can be included anywhere in the configuration file, but it will run only after the build stage.
+The remote configuration can be included anywhere in the configuration file, but it will run only after the build stage.
 
-### Example with proxy and rl-store configured (for a local runner)
+```
+# REQUIREMENTS:
+#   RLSECURE_SITE_KEY: must be declared as a global variable type 'variable'
+#   RLSECURE_ENCODED_LICENSE: must be declared as a global variable type 'variable'
 
+variables:
+  MY_ARTIFACT_TO_SCAN: bash
+  PACKAGE_PATH: packages
+  REPORT_PATH: report
+ 
+include:
+  - remote: 'https://raw.githubusercontent.com/reversinglabs/rl-scanner-gitlab-include/main/rl-scanner-gitlab-include.yml'
+ 
+job-build:
+  stage: build
+ 
+  image:
+    # Any image you require
+    name: ubuntu:latest
+ 
+  artifacts:
+    name: "build_artifact"
+    paths:
+      - $PACKAGE_PATH/*
+ 
+  script:
+    - |
+      export HOME=$( pwd ); echo $HOME
+ 	  # Prepare to build an artifact as the build output
+      mkdir $PACKAGE_PATH       
+      cp /bin/${MY_ARTIFACT_TO_SCAN} $PACKAGE_PATH/
+ 
+job-deploy:
+  stage: deploy
+ 
+  image:
+    # Any image you require
+    name: ubuntu:latest
+ 
+  script:
+    - |
+      # Here we have access to all artifacts from the previous jobs
+      # $PACKAGE_PATH and $REPORT_PATH should be visible
+      export HOME=$( pwd ); echo $HOME
+      ls -la .
+      ls -la $PACKAGE_PATH
+      ls -la $REPORT_PATH
+ 
+      echo "This job deploys the artifact from the $CI_COMMIT_BRANCH branch."
+```
+
+
+### Local GitLab runner
+
+The `rl-scanner-gitlab-include` configuration is based on the way the GitLab-hosted runners work. 
+That means a Docker-based [executor](https://docs.gitlab.com/runner/executors/) is expected.
+
+To use a self-hosted [package store](https://docs.secure.software/concepts/basic-concepts#package-store), you will have to install your own runner(s) locally. 
+Using a package store opens up the possibility of advanced use cases for the scan process. 
+Specifically, you can compare two package versions to generate a diff report.
+
+If you want to use one central package store, you will have to set that up using NFS or CIFS. 
+The Docker runners can only use external volumes that are configured in the [config.toml](https://docs.gitlab.com/runner/commands/index.html#configuration-file) file for your `executor`.
+
+The following example `config.toml` file shows how a package store (`rl-store`) is shared between all Docker instances.
+In this example, we're using an NFS-based shared package store that can be used by multiple `executors`.
+
+**Example config.toml**
+
+```
+    concurrent = 1
+    check_interval = 0
+    shutdown_timeout = 0
+
+    [session_server]
+      session_timeout = 1800
+
+    [[runners]]
+      name = "gitlab-runner-***"
+      url = "https://gitlab.com"
+      id = <some id>
+      token = "**********************"
+      token_obtained_at = <some date>
+      token_expires_at = <some other date>
+      executor = "docker"
+      [runners.cache]
+        MaxUploadedArchiveSize = 0
+      [runners.docker]
+        tls_verify = false
+        image = "<your image configured>"
+        privileged = false
+        disable_entrypoint_overwrite = false
+        oom_kill_disable = false
+        disable_cache = false
+        volumes = [
+          "/cache",
+          "/mount/nfs/rl-store:/rl-store:rw",
+        ]
+        shm_size = 0
+```
+
+
+The following example is a pipeline for a local GitLab runner that includes the `rl-scanner-gitlab-include` configuration.
+
+In this example, we're using a proxy configuration and a package store. 
+
+The package store location is specified with the `RL_STORE` variable. Every scanned artifact is added to the store as a package version assigned to a project and package, and all those elements together make up the package URL (project/package@version). 
+The analysis results for every scanned artifact are preserved in the package store. 
+When scanning a new package version, you can compare it against previously scanned package versions in the same project with the `RL_DIFF_WITH` variable.
+
+
+**Example pipeline with proxy configuration and package store**
+
+```
         # REQUIREMENTS:
         #   RLSECURE_SITE_KEY: must be declared as global variables type 'variable'
         #   RLSECURE_ENCODED_LICENSE: must be declared as global variables type 'variable'
@@ -142,8 +257,7 @@ The remote can be included anywhere in the configuration file, but it will run o
           RL_VERBOSE: 1
 
         include:
-          # - remote: 'https://raw.githubusercontent.com/reversinglabs/rl-scanner-gitlab-include/main/rl-scanner-gitlab-include.yml'
-          - remote: 'https://raw.githubusercontent.com/maarten-boot/rl-scanner-gitlab-include/main/rl-scanner-gitlab-include.yml'
+          - remote: 'https://raw.githubusercontent.com/reversinglabs/rl-scanner-gitlab-include/main/rl-scanner-gitlab-include.yml'
 
         job-build:
           stage: build
@@ -159,7 +273,7 @@ The remote can be included anywhere in the configuration file, but it will run o
           script:
             - |
               export HOME=$( pwd ); echo $HOME
-              mkdir $PACKAGE_PATH # prepare to build a artifact as the build output
+              mkdir $PACKAGE_PATH # prepare to build an artifact as the build output
               cp /bin/${MY_ARTIFACT_TO_SCAN} $PACKAGE_PATH/
 
         job-deploy:
@@ -170,7 +284,7 @@ The remote can be included anywhere in the configuration file, but it will run o
 
           script:
             - |
-              # here we have access to all artifacts
+              # Here we have access to all artifacts
               # of the previous jobs
               # so $PACKAGE_PATH and $REPORT_PATH should be visible
               export HOME=$( pwd ); echo $HOME
@@ -178,48 +292,8 @@ The remote can be included anywhere in the configuration file, but it will run o
               ls -la $PACKAGE_PATH
               ls -la $REPORT_PATH
               echo "This job deploys something from the $CI_COMMIT_BRANCH branch."
+```
 
-## GitLab Runners
-
-The current template is based on the way the gitlab hosted runners work. That means they expect a docker based [executor](https://docs.gitlab.com/runner/executors/).
-
-In order to use the provided template you wil have to install your own runner(s) locally and if you need to have one central package store you will have to set that up using NFS or CIFS.
-
-The docker runners can only use external volumes that are configured in the [config.toml](https://docs.gitlab.com/runner/commands/index.html#configuration-file) for your `executor` file.
-
-An example `config.toml is shown here to show how the `rl-store` is shared between all docker instances.
-In this example we have used a `NFS` based shared `rl-store` that can be use by multiple `executors`.
-
-
-        concurrent = 1
-        check_interval = 0
-        shutdown_timeout = 0
-
-        [session_server]
-          session_timeout = 1800
-
-        [[runners]]
-          name = "gitlab-runner-***"
-          url = "https://gitlab.com"
-          id = <some id>
-          token = "**********************"
-          token_obtained_at = <some date>
-          token_expires_at = <some other date>
-          executor = "docker"
-          [runners.cache]
-            MaxUploadedArchiveSize = 0
-          [runners.docker]
-            tls_verify = false
-            image = "<your image configured>"
-            privileged = false
-            disable_entrypoint_overwrite = false
-            oom_kill_disable = false
-            disable_cache = false
-            volumes = [
-              "/cache",
-              "/mount/nfs/rl-store:/rl-store:rw",
-            ]
-            shm_size = 0
 
 ## Useful resources
 
@@ -228,6 +302,6 @@ In this example we have used a `NFS` based shared `rl-store` that can be use by 
 - Introduction to [secure software release processes](https://www.reversinglabs.com/solutions/secure-software-release-processes) with ReversingLabs
 - [Software supply chain security for application security teams](https://3375217.fs1.hubspotusercontent-na1.net/hubfs/3375217/Documents/Business-Brief-Software-Supply-Chain-Security-for-Application-Security-Teams.pdf) (link to a PDF document)
 - [Use CI/CD configuration from other files](https://docs.gitlab.com/ee/ci/yaml/includes.html)
-- [GitLab Runner](https://docs.gitlab.com/runner/)
+- [GitLab runner](https://docs.gitlab.com/runner/)
 - [GitLab executor](https://docs.gitlab.com/runner/executors/)
 - [GitLab Docker executor 'config.toml'](https://docs.gitlab.com/runner/commands/index.html#configuration-file)
