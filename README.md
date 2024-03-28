@@ -20,7 +20,7 @@ By default, the configuration is set up to work with GitLab-hosted runners. It i
 
 ## What is rl-secure?
 
-`rl-secure` is a CLI tool that's part of the [secure.software platform](https://www.secure.software/) - a new ReversingLabs solution for software supply chain protection.
+`rl-secure` is a CLI tool that's part of the [Spectra Assure platform](https://www.reversinglabs.com/products/software-supply-chain-security) - a new ReversingLabs solution for software supply chain protection.
 
 With `rl-secure`, you can:
 
