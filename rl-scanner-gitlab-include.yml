@@ -39,7 +39,7 @@
 job-reversinglabs-rl-scanner:
   # This job will run in the test stage of the pipeline
   stage: test
-
+      
   # We will run the reversinglabs/rl-scanner:latest Docker image,
   # but will use our own entry point to make it compatible with GitLab runner.
   image:
@@ -103,6 +103,7 @@ job-reversinglabs-rl-scanner:
       REPORT_PATH:              ${REPORT_PATH:-No path specified}
       PACKAGE_PATH:             ${PACKAGE_PATH:-No path specified}
       MY_ARTIFACT_TO_SCAN:      ${MY_ARTIFACT_TO_SCAN:-No artifact specified}
+      RL_LEVEL:                 ${RL_LEVEL:-No policy level was specified. Defaults to 5, unless RL_STORE is used.}
       RL_STORE:                 ${RL_STORE:-No path specified for RL_STORE: no diff scan can be executed}
       RL_PACKAGE_URL:           ${RL_PACKAGE_URL:-No package URL given: no diff scan can be executed}
       RL_DIFF_WITH:             ${RL_DIFF_WITH:-No diff with was requested}
@@ -204,8 +205,13 @@ job-reversinglabs-rl-scanner:
       }
       run_scan_nostore()
       {
+          RL_LEVEL_STR=""
+          if [ ! -z "${RL_LEVEL}" ]
+          then
+              RL_LEVEL_STR="--rl-level=$RL_LEVEL"
+          fi
           rl-scan \
-              --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
+              $RL_LEVEL_STR --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
               --report-path="${REPORT_PATH}" \
               --report-format=all 1>1 2>2
           RR=$?
