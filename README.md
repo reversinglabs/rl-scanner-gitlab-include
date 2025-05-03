@@ -20,7 +20,7 @@ By default, the configuration is set up to work with GitLab-hosted runners. It i
 
 ## What is rl-secure?
 
-`rl-secure` is a CLI tool that's part of the [Spectra Assure platform](https://www.reversinglabs.com/products/software-supply-chain-security) - a new ReversingLabs solution for software supply chain protection.
+`rl-secure` is a CLI tool that's part of the [Spectra Assure platform](https://www.reversinglabs.com/products/software-supply-chain-security) - ReversingLabs' solution for software supply chain protection.
 
 With `rl-secure`, you can:
 
@@ -95,6 +95,7 @@ The Base64-encoded license string and the site key must be provided to the pipel
 | `RLSECURE_PROXY_PORT`     | No | Network port on the proxy server for proxy configuration. Required if `RLSECURE_PROXY_SERVER` is used. |
 | `RLSECURE_PROXY_USER`     | No | User name for proxy authentication. |
 | `RLSECURE_PROXY_PASSWORD` | No | Password for proxy authentication. Required if `RLSECURE_PROXY_USER` is used. |
+| `RL_LEVEL`                | No | SAFE level used for scan. Default is 5. Can't be used with `RL_STORE`. |
 | `RL_STORE`                | No | If using a package store, use this parameter to provide the path to a directory where the self-hosted package store has been initialized. |
 | `RL_PACKAGE_URL`          | No | If using a package store, use this parameter to specify the package URL (PURL) for the scanned artifact. The package URL should be in the format `project/package@version`; for example `testing/demo-rl-scanner@v1.0.3`. |
 | `RL_DIFF_WITH`            | No | If using a package store, use this parameter to specify a previously scanned package version to compare (diff) against. |
