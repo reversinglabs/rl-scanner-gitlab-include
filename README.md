@@ -99,6 +99,7 @@ The Base64-encoded license string and the site key must be provided to the pipel
 | `RL_STORE`                | No | If using a package store, use this parameter to provide the path to a directory where the self-hosted package store has been initialized. |
 | `RL_PACKAGE_URL`          | No | If using a package store, use this parameter to specify the package URL (PURL) for the scanned artifact. The package URL should be in the format `project/package@version`; for example `testing/demo-rl-scanner@v1.0.3`. |
 | `RL_DIFF_WITH`            | No | If using a package store, use this parameter to specify a previously scanned package version to compare (diff) against. |
+| `RL_PACK_SAFE`            | No | Use this parameter to generate a SAFE archive (report.rl-safe) for the scan. |
 | `RL_VERBOSE`              | No | Set to anything but '' to provide more feedback in the output while running the scan. Disabled by default. |
 
 
