@@ -99,9 +99,37 @@ job-reversinglabs-rl-scanner:
       # E) Additional verbosity can be configured with:
       # - RL_VERBOSE: optional, default '' (anything else will be treated as true)
       set +e # we handle errors ourselves in this script
+      cleanup()
+      {
+          # suspicious chars are mainly `$><|&;
+          # for bool we can remove `$><|;&
+          RL_VERBOSE=${RL_VERBOSE//[\`\$><|;&]/} # a bool default false
+          # file or dir paths may not have `$><|;& so remove
+          REPORT_PATH=${REPORT_PATH//[\`\$><|;&]/} # a path
+          PACKAGE_PATH=${PACKAGE_PATH//[\`\$><|;&]/} # a path
+          MY_ARTIFACT_TO_SCAN=${MY_ARTIFACT_TO_SCAN//[\`\$><|;&]/}
+          RL_LEVEL=${RL_LEVEL//[^0-9]/} # numeric only
+          RL_STORE=${RL_STORE//[\`\$><|;&]/} # a path
+          RL_PACKAGE_URL=${RL_PACKAGE_URL//[\`]/} # a package url
+          RL_DIFF_WITH=${RL_DIFF_WITH//[\`]/} # a pcakage url
+          RL_PACK_SAFE=${RL_PACK_SAFE//[\`]/} # a bool default false
+          # the proxy params are passed explicitly via the environment
+          # a server is either ip4 or ip6 or dns; safe to remove $`><|;&
+          RLSECURE_PROXY_SERVER=${RLSECURE_PROXY_SERVER//[\`\$><|;&]/}
+          # a port is always numeric, remove all other chars
+          RLSECURE_PROXY_PORT=${RLSECURE_PROXY_PORT//[^0-9]/}
+          # a user may not contain: `$><|&;
+          RLSECURE_PROXY_USER=${RLSECURE_PROXY_USER//[\`\$><|;&]/}
+          # a pass is more difficult as it can contain almost anything
+          # in this case we can export it and forward it to docker via the environment
+          export RLSECURE_PROXY_SERVER
+          export RLSECURE_PROXY_PORT
+          export RLSECURE_PROXY_USER
+          export RLSECURE_PROXY_PASSWORD
+      }
       do_verbose()
       {
-          cat <<!
+        cat <<!
       REPORT_PATH:              ${REPORT_PATH:-No path specified}
       PACKAGE_PATH:             ${PACKAGE_PATH:-No path specified}
       MY_ARTIFACT_TO_SCAN:      ${MY_ARTIFACT_TO_SCAN:-No artifact specified}
@@ -134,6 +162,8 @@ job-reversinglabs-rl-scanner:
               msg="we require 'RLSECURE_ENCODED_LICENSE' to exist as an env variable"
               fatal "${msg}"
           }
+          export RLSECURE_SITE_KEY
+          export RLSECURE_ENCODED_LICENSE
       }
       prep_report()
       {
@@ -183,7 +213,7 @@ job-reversinglabs-rl-scanner:
       makeDiffWith()
       {
           DIFF_WITH=""
-          if [ -z "$RL_STORE" ]
+          if [ -z "${RL_STORE}" ]
           then
               return
           fi
@@ -198,7 +228,7 @@ job-reversinglabs-rl-scanner:
           # Split the package URL and find Project and Package
           Project=$( extractProjectFromPackageUrl )
           Package=$( extractPackageFromPackageUrl )
-          if [ ! -d "$RL_STORE/.rl-secure/projects/${Project}/packages/${Package}/versions/${RL_DIFF_WITH}" ]
+          if [ ! -d "${RL_STORE}/.rl-secure/projects/${Project}/packages/${Package}/versions/${RL_DIFF_WITH}" ]
           then
               echo "That version has not been scanned yet: ${RL_DIFF_WITH} in Project: ${Project} and Package: ${Package}"
               echo "No diff scan will be executed, only ${RL_PACKAGE_URL} will be scanned"
@@ -212,17 +242,16 @@ job-reversinglabs-rl-scanner:
           RL_PACK_SAFE_STR=""
           if [ ! -z "${RL_LEVEL}" ]
           then
-              RL_LEVEL_STR="--rl-level=$RL_LEVEL"
+              RL_LEVEL_STR="--rl-level=${RL_LEVEL}"
           fi
           if [ ! -z "${RL_PACK_SAFE}" ]
           then
               RL_PACK_SAFE_STR="--pack-safe"
           fi
-          rl-scan \
-              $RL_LEVEL_STR --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
+          rl-scan ${RL_LEVEL_STR} \
+              --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
               --report-path="${REPORT_PATH}" \
-              --report-format=all \
-              ${RL_PACK_SAFE_STR} 1>1 2>2
+              --report-format=all ${RL_PACK_SAFE_STR} 1>1 2>2
           RR=$?
       }
       run_scan_withstore()
@@ -238,9 +267,7 @@ job-reversinglabs-rl-scanner:
               --replace \
               --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
               --report-path="${REPORT_PATH}" \
-              --report-format=all \
-              ${RL_PACK_SAFE_STR} \
-              ${DIFF_WITH} 1>1 2>2
+              --report-format=all ${RL_PACK_SAFE_STR} ${DIFF_WITH} 1>1 2>2
           RR=$?
       }
       get_scan_result_or_fail()
@@ -272,6 +299,7 @@ job-reversinglabs-rl-scanner:
       }
       main()
       {
+          cleanup
           if [ ! -z "${RL_VERBOSE}" ]
           then
               do_verbose
