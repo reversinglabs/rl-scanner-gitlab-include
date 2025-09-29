@@ -122,10 +122,10 @@ job-reversinglabs-rl-scanner:
           RLSECURE_PROXY_USER=${RLSECURE_PROXY_USER//[\`\$><|;&]/}
           # a pass is more difficult as it can contain almost anything
           # in this case we can export it and forward it to docker via the environment
-          export RLSECURE_PROXY_SERVER
-          export RLSECURE_PROXY_PORT
-          export RLSECURE_PROXY_USER
-          export RLSECURE_PROXY_PASSWORD
+          # export RLSECURE_PROXY_SERVER
+          # export RLSECURE_PROXY_PORT
+          # export RLSECURE_PROXY_USER
+          # export RLSECURE_PROXY_PASSWORD
       }
       do_verbose()
       {
@@ -248,11 +248,13 @@ job-reversinglabs-rl-scanner:
           then
               RL_PACK_SAFE_STR="--pack-safe"
           fi
+          set -x
           rl-scan ${RL_LEVEL_STR} \
               --package-path="./${PACKAGE_PATH}/${MY_ARTIFACT_TO_SCAN}" \
               --report-path="${REPORT_PATH}" \
               --report-format=all ${RL_PACK_SAFE_STR} 1>1 2>2
           RR=$?
+          set +x
       }
       run_scan_withstore()
       {
@@ -261,6 +263,7 @@ job-reversinglabs-rl-scanner:
           then
               RL_PACK_SAFE_STR="--pack-safe"
           fi
+          set -x
           rl-scan \
               --rl-store="${RL_STORE}" \
               --purl="${RL_PACKAGE_URL}" \
@@ -269,6 +272,7 @@ job-reversinglabs-rl-scanner:
               --report-path="${REPORT_PATH}" \
               --report-format=all ${RL_PACK_SAFE_STR} ${DIFF_WITH} 1>1 2>2
           RR=$?
+          set +x
       }
       get_scan_result_or_fail()
       {
